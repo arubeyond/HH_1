@@ -47,7 +47,7 @@ const ll MIN_V = 200;
 const int MAX_Degree = 5;
 const ll MAX_DIST = 5000;
 
-const int orders_to_move = 1;
+const int orders_to_move = 3;
 
 inline int string_to_int(string s)
 {
