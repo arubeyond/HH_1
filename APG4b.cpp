@@ -47,7 +47,7 @@ const ll MIN_V = 200;
 const int MAX_Degree = 5;
 const ll MAX_DIST = 5000;
 
-const int orders_to_move = 3;
+const int orders_to_move = 5;
 
 inline int string_to_int(string s)
 {
@@ -122,20 +122,19 @@ ll CALC_MAIN(string path)
     }
     else
     {
-        int idx;
         cin >> input_data[0] >> input_data[1];
         rep(i, input_data[1]) cin >> input_data[3 * i + 2] >> input_data[3 * i + 3] >> input_data[3 * i + 4];
         cin >> input_data[(3 * input_data[1] + 2)];
-        idx = 3 * input_data[1] + 3;
+        int idx = 3 * input_data[1] + 3;
         rep(t, T)
         {
             cin >> input_data[idx];
-            idx++;
             if (input_data[idx])
             {
-                cin >> input_data[idx] >> input_data[idx + 1];
+                cin >> input_data[idx + 1] >> input_data[idx + 2];
                 idx += 2;
             }
+            idx++;
         }
     }
     if (debug)
