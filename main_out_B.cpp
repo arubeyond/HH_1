@@ -192,7 +192,7 @@ ll CALC_MAIN(string path)
     //注文がk個以上のときすべて回る（0を通ったら追加する）
     //注文がk個未満のとき0へ向かう。（配達完了処理もちゃんとする）
 
-    vector<int> ans(T, -1);
+    vector<int> ans(T, -2);
     int idx = 2 + 3 * E + V + 1;
     vector<int> ord_id(T, -1);  //時刻tの注文のID
     int ord_have = 0;  //積んだ注文の数
@@ -219,13 +219,16 @@ ll CALC_MAIN(string path)
         {
             cout << "itr, score : " << t << " " << score << ENDL;
         }
+
+        //注文処理
         int ord_num;
         if(debug){
             ord_num = input_data[idx];
             idx++;
         }
         else{
-            cin >> ord_num;}
+            cin >> ord_num;
+        }
         if (ord_num)
         {
             int target;
@@ -245,6 +248,7 @@ ll CALC_MAIN(string path)
             ord_nhave++;
             //各頂点の評価更新
         }
+
         //商品を積む
         if (now[0]==now[1] && now[0]==0){
             ord_have += ord_nhave;
@@ -312,11 +316,7 @@ ll CALC_MAIN(string path)
             int cnt, x;
             cin >> cnt;
             rep(i, cnt) cin >> x;
-            if (ans[t] == -1)
-                cout << -1 << ENDL;
-            else
-                cout << ans[t] + 1 << ENDL;
-
+            cout << ans[t] + 1 << endl;
             string verdict;
             cin >> verdict;
             if (verdict == "NG")
