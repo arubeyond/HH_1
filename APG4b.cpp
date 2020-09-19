@@ -115,7 +115,7 @@ ll CALC_MAIN(string path)
     ll score = 0;
 
     //input
-    vector<int> input_data(32500);
+    vector<int> input_data(33000);
     if (debug)
     {
         read_csv(path, input_data);
@@ -124,18 +124,8 @@ ll CALC_MAIN(string path)
     {
         cin >> input_data[0] >> input_data[1];
         rep(i, input_data[1]) cin >> input_data[3 * i + 2] >> input_data[3 * i + 3] >> input_data[3 * i + 4];
-        cin >> input_data[(3 * input_data[1] + 2)];
-        int idx = 3 * input_data[1] + 3;
-        rep(t, T)
-        {
-            cin >> input_data[idx];
-            if (input_data[idx])
-            {
-                cin >> input_data[idx + 1] >> input_data[idx + 2];
-                idx += 2;
-            }
-            idx++;
-        }
+        rep(i, input_data[0]) cin >> input_data[2 + 3 * input_data[1] + i];
+        cin >> input_data[(2 + 3 * input_data[1] + input_data[0])];
     }
     if (debug)
     {
@@ -203,8 +193,7 @@ ll CALC_MAIN(string path)
     //注文がk個未満のとき0へ向かう。（配達完了処理もちゃんとする）
 
     vector<int> ans(T, -1);
-    int idx = 3 * E + 3;
-    
+    int idx = 2 + 3 * E + V + 1;
     vector<int> ord_id(T, -1);  //時刻tの注文のID
     int ord_have = 0;  //積んだ注文の数
     int ord_nhave = 0;  //積んでいない注文の数
@@ -230,14 +219,27 @@ ll CALC_MAIN(string path)
         {
             cout << "itr, score : " << t << " " << score << ENDL;
         }
-        int ord_num = input_data[idx];
-        idx++;
+        int ord_num;
+        if(debug){
+            ord_num = input_data[idx];
+            idx++;
+        }
+        else{
+            cin >> ord_num;}
         if (ord_num)
         {
-            ord_id[t] = input_data[idx];
-            idx++;
-            int target = input_data[idx] - 1;
-            idx++;
+            int target;
+            if(debug){
+                ord_id[t] = input_data[idx];
+                idx++;
+                target = input_data[idx];
+                idx++;
+            }
+            else{
+            cin >> ord_id[t];
+            cin >> target;
+            }
+            target--;
             order[target].insert(t);
             ord_all.insert(mp(t, target));
             ord_nhave++;
@@ -278,18 +280,18 @@ ll CALC_MAIN(string path)
             now[1] = ans[t];
             now[2] = 1;
         }
+        
+
 
         //移動結果の処理
-        //配達完了処理とスコアの集計
-        //z : 時刻t+1に完了した注文の数
-        int z = 0;
+        int z = 0;//z : 時刻t+1に完了した注文の数
         if (now[2] && now[2]==(*edge[now[0]].find(now[1])).S){
             now[0] = now[1];
             now[2] = 0;
         }
+        //配達完了処理とスコアの集計
         if (now[2]==0 && now[0]!=0){
-            //店舗以外の頂点にいる場合
-            //その頂点のbef以前の注文を受け取る
+            //店舗以外の頂点にいる場合、その頂点のbef以前の注文を受け取る
             for (auto itr = order[now[0]].begin(); itr != order[now[0]].end();itr++){
                 if((*itr)>bef){
                     order[now[0]].erase(order[now[0]].begin(), itr);
@@ -304,6 +306,24 @@ ll CALC_MAIN(string path)
                 order[now[0]].erase(all(order[now[0]]));
             }
         }
+
+        if (!(debug))
+        {
+            int cnt, x;
+            cin >> cnt;
+            rep(i, cnt) cin >> x;
+            if (ans[t] == -1)
+                cout << -1 << ENDL;
+            else
+                cout << ans[t] + 1 << ENDL;
+
+            string verdict;
+            cin >> verdict;
+            if (verdict == "NG")
+                return -1;
+            cin >> cnt;
+            rep(i, cnt) cin >> x;
+        }
     }
 
     if (debug)
@@ -311,11 +331,6 @@ ll CALC_MAIN(string path)
         cout << "CALC_MAIN end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
              << ENDL;
-    }
-    if (!(debug))
-    {
-        rep(i, T) if (ans[i] != -1) ans[i]++;
-        rep(i, T) cout << ans[i] << ENDL;
     }
 
     return score;
@@ -325,13 +340,15 @@ int main()
 {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
-    const string path = "./test_A/input_";
+    const string path = "./test_B/input_";
     int n = 1;
-    string problem = "A";
+    string problem = "B";
     rep(i, n)
     {
         string path_in = path + int_to_string(i) + ".csv";
-        ld ans = (ld)CALC_MAIN(path_in) / 1000000.0;
+        ld ans = (ld)CALC_MAIN(path_in) * (ld)30.0 / (ld)1000000000.0;
+        if (ans==-1)
+            return 0;
         if (debug)
         {
             cout << "final score : " << ans << ENDL;
