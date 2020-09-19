@@ -40,14 +40,13 @@ const char ENDL = '\n';
 const ll MOD = 998244353;
 
 bool debug = false;
+bool time_display = false;
 
 const ll T = 10000;
 const ll MAX_V = 400;
 const ll MIN_V = 200;
 const int MAX_Degree = 5;
 const ll MAX_DIST = 5000;
-
-const int orders_to_move = 5;
 
 inline int string_to_int(string s)
 {
@@ -101,21 +100,24 @@ ld calc_value(int t, vector<ld> hav)
     return (cons * hav[0] + (ld)2.0 * (ld)t * hav[1] - hav[2]);
 }
 
-bool comp_max(ld &a, ld b){
-    if (a<b){
+bool comp_max(ld &a, ld b)
+{
+    if (a < b)
+    {
         a = b;
         return true;
     }
-    else{
+    else
+    {
         return false;
     }
 }
 
-ll CALC_MAIN(string path)
+ll CALC_MAIN(string path, int orders_to_move, int deadline)
 {
 
     auto startClock = system_clock::now();
-    if (debug)
+    if (debug && time_display)
     {
         cout << "CALC_MAIN start at : "
              << duration_cast<microseconds>(startClock - startClock).count() * 1e-6
@@ -147,7 +149,7 @@ ll CALC_MAIN(string path)
             idx++;
         }
     }
-    if (debug)
+    if (debug && time_display)
     {
         cout << "input end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
@@ -168,7 +170,7 @@ ll CALC_MAIN(string path)
         edge[u].insert(mp(v, d));
         edge[v].insert(mp(u, d));
     }
-    if (debug)
+    if (debug && time_display)
     {
         cout << "init end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
@@ -201,7 +203,7 @@ ll CALC_MAIN(string path)
             }
         }
     }
-    if (debug)
+    if (debug && time_display)
     {
         cout << "calc dist end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
@@ -226,25 +228,25 @@ ll CALC_MAIN(string path)
     vector<int> now(4, 0); //辺(u,v)のuから距離dの地点にいて、最終的にwに向かっている
     //main_loop
 
-    if (debug)
+    if (debug && time_display)
     {
         cout << "main init end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
              << ENDL;
     }
 
+    int z = 0;
     rep(t, T)
     {
         //時刻tからt+1の処理をおこなう
+
         //注文を受け取る
-        if (debug && t % 2500 == 0)
-        {
-            cout << "itr, score : " << t << " " << score << ENDL;
-        }
         int ord_num = input_data[idx];
         idx++;
         if (ord_num)
         {
+            z++;
+
             ord_id[t] = input_data[idx];
             idx++;
             int target = input_data[idx] - 1;
@@ -263,8 +265,10 @@ ll CALC_MAIN(string path)
         {
             ord_cnt[1] += ord_cnt[0];
             ord_cnt[0] = 0;
-            rep(i,V){
-                rep(j,3){
+            rep(i, V)
+            {
+                rep(j, 3)
+                {
                     ord_have[i][j] += ord_nhave[i][j];
                     ord_nhave[i][j] = 0;
                 }
@@ -284,16 +288,24 @@ ll CALC_MAIN(string path)
         else if (ord_cnt[1] >= orders_to_move)
         {
             search_next = true;
+            if ((*ord_all.begin()).F + deadline >= t)
+            {
+                now[3] = (*ord_all.begin()).S;
+            }
             //auto idx = ord_all.upper_bound(bef);
             //idx--;
             //now[3] = (*idx).S;
-
-            ld mx = 0;
-            repf(i,1,V){
-                if(i==now[0])
-                    continue;
-                if (comp_max(mx,calc_value(t,ord_have[i])/(ld)dist[now[0]][i])){
-                    now[3] = i;
+            else
+            {
+                ld mx = 0;
+                repf(i, 1, V)
+                {
+                    if (i == now[0])
+                        continue;
+                    if (comp_max(mx, calc_value(t, ord_have[i]) / (ld)dist[now[0]][i]))
+                    {
+                        now[3] = i;
+                    }
                 }
             }
         }
@@ -316,12 +328,13 @@ ll CALC_MAIN(string path)
         //移動結果の処理
         //配達完了処理とスコアの集計
         //z : 時刻t+1に完了した注文の数
-        int z = 0;
         if (now[2] && now[2] == (*edge[now[0]].find(now[1])).S)
         {
             now[0] = now[1];
             now[2] = 0;
         }
+
+        //配達完了処理とスコアの集計
         if (now[2] == 0 && now[0] != 0)
         {
             //店舗以外の頂点にいる場合
@@ -333,9 +346,9 @@ ll CALC_MAIN(string path)
                     order[now[0]].erase(order[now[0]].begin(), itr);
                     break;
                 }
+                z--;
                 ord_all.erase((*itr));
                 ord_cnt[1]--;
-                z++;
                 score += pow(T, 2) - pow(t - (*itr), 2);
             }
             if ((!order[now[0]].empty()) && (*order[now[0]].begin()) <= bef)
@@ -345,8 +358,7 @@ ll CALC_MAIN(string path)
             rep(j, 3) ord_have[now[0]][j] = 0;
         }
     }
-
-    if (debug)
+    if (debug && time_display)
     {
         cout << "CALC_MAIN end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
@@ -356,7 +368,15 @@ ll CALC_MAIN(string path)
     {
         rep(i, T) cout << ans[i] + 1 << ENDL;
     }
-
+    if (debug && 0)
+    {
+        cout << "leave order num :" << z << ENDL;
+        for (auto itr = ord_all.begin(); itr != ord_all.end(); itr++)
+        {
+            cout << (*itr).F << " ";
+        }
+        cout << ENDL;
+    }
     return score;
 }
 
@@ -365,15 +385,22 @@ int main()
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
     const string path = "./test_A/input_";
-    int n = 1;
+    string path_in = path + int_to_string(0) + ".csv";
     string problem = "A";
+    int o_t_m = 9;
+    int dl = 900;
+    if (!(debug))
+    {
+        CALC_MAIN(path_in, o_t_m, dl);
+        return 0;
+    }
+    int n = 10;
+    ld s_score = 0;
     rep(i, n)
     {
-        string path_in = path + int_to_string(i) + ".csv";
-        ld ans = (ld)CALC_MAIN(path_in) * (ld)30.0 / (ld)1000000000000.0;
-        if (debug)
-        {
-            cout << "final score : " << ans << ENDL;
-        }
+        cout << ENDL;
+        cout << "start " << i << ENDL;
+        s_score += (ld)CALC_MAIN(path + int_to_string(i) + ".csv", o_t_m, dl) / (ld)100000000;
     }
+    cout << "ave score : " << s_score / (ld)n << ENDL;
 }
