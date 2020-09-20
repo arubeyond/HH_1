@@ -465,14 +465,17 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
 
     //解の改善をしていく
     int cnt = 0;
-    ld START_TEMP = 1500;
-    ld END_TEMP = 100;
+    ld START_TEMP = 20000000;
+    ld END_TEMP = 100000;
     //score_deltaをtempで割るため、ある程度スコアの差分を予想できていたほうがよい。
     //差分のave取ってみる
     ld END_TIME = 29.5;
     ld temp = START_TEMP;
     ld mx = score_mx;
     vector<int> ans_root = root;
+
+    vector<ld> debug_delta(2, 0);
+
     while (true)
     {
         if (cnt % 100 == 0)
@@ -521,6 +524,10 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
             }
         }
         ld score_delta = score_new - score_mx;
+
+        debug_delta[0]++;
+        debug_delta[1] += score_delta / (ld)1000000.0;
+
         if (exp(score_delta / temp) > randxor01())
         {
             score_mx += score_delta;
@@ -572,6 +579,11 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
                 }
             }
         }
+    }
+    if (debug)
+    {
+        cout << "delta ave : ";
+        cout << debug_delta[1] / debug_delta[0] << ENDL;
     }
 
     if (debug && time_display)

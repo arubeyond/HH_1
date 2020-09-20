@@ -39,7 +39,7 @@ const char ENDL = '\n';
 //cout << fixed << setprecision(17) << res << endl;
 const ll MOD = 998244353;
 
-bool debug = true;
+bool debug = false;
 bool time_display = false;
 
 const ll T = 10000;
@@ -305,7 +305,8 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
         bool search_next = false;
 
         //9500のチェックなど
-        if (check9500){
+        if (check9500)
+        {
             if (now[2] > 0)
             {
                 int dist_a = t + dist[now[0]][0] + now[2];
@@ -333,11 +334,10 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
             }
         }
 
-
-
-        if (go9500 && now[0]==0 && now[1]==0 && now[2]== 0){
-                t_last = t;
-                break;
+        if (go9500 && now[0] == 0 && now[1] == 0 && now[2] == 0)
+        {
+            t_last = t;
+            break;
         }
         else if (now[2] > 0)
         {
@@ -413,7 +413,6 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
         }
     }
 
-
     //t_lastの行動決定フェーズから
     //Tまでの行動を焼きなまし法を用いて最大化を行う
 
@@ -424,29 +423,36 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
     visited[0] = 1;
     ld score_mx = 0;
     int nw = 0;
-    while (t_now<T){
+    while (t_now < T)
+    {
         int sz = root.size();
         nw = root[sz - 1];
         int nex = -1;
         ld nex_v = -1;
-        
-        rep(i,V){
-            if(i==nw || t_now+dist[nw][i]>T)
+
+        rep(i, V)
+        {
+            if (i == nw || t_now + dist[nw][i] > T)
                 continue;
-            ld i_v = (visited[i]^1) * calc_value(t_now, ord_have[i]) / (ld)(dist[nw][i]);
-            if (i_v>nex_v){
+            ld i_v = (visited[i] ^ 1) * calc_value(t_now, ord_have[i]) / (ld)(dist[nw][i]);
+            if (i_v > nex_v)
+            {
                 nex_v = i_v;
                 nex = i;
             }
         }
-        if (nex==-1)
+        if (nex == -1)
             break;
         root.emplace_back(nex);
-        while(nw!=nex){
-            for (auto itr = edge[nw].begin(); itr != edge[nw].end();itr++){
-                if (dist[nw][nex]==dist[(*itr).F][nex]+(*itr).S){
+        while (nw != nex)
+        {
+            for (auto itr = edge[nw].begin(); itr != edge[nw].end(); itr++)
+            {
+                if (dist[nw][nex] == dist[(*itr).F][nex] + (*itr).S)
+                {
                     t_now += (*itr).S;
-                    if (visited[(*itr).F]==0){
+                    if (visited[(*itr).F] == 0)
+                    {
                         score_mx += calc_value(t_now, ord_have[(*itr).F]);
                         visited[(*itr).F] = 1;
                     }
@@ -455,24 +461,28 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
                 }
             }
         }
-        
     }
 
-    
     //解の改善をしていく
     int cnt = 0;
-    ld START_TEMP = 1500;
-    ld END_TEMP = 100;
+    ld START_TEMP = 20000000;
+    ld END_TEMP = 100000;
     //score_deltaをtempで割るため、ある程度スコアの差分を予想できていたほうがよい。
     //差分のave取ってみる
     ld END_TIME = 29.5;
     ld temp = START_TEMP;
     ld mx = score_mx;
     vector<int> ans_root = root;
-    while(true){
-        if (cnt%100==0){
+
+    vector<ld> debug_delta(2, 0);
+
+    while (true)
+    {
+        if (cnt % 100 == 0)
+        {
             double time = duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6;
-            if (time>END_TIME){
+            if (time > END_TIME)
+            {
                 break;
             }
             temp = START_TEMP + (END_TEMP - START_TEMP) * time / END_TIME;
@@ -485,9 +495,10 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
         t_now = t_last;
         nw = root[0];
         rep(i, V) visited[i] = 0;
-        repf(i,1,sz){
+        repf(i, 1, sz)
+        {
             int nex = root[i];
-            if (dist[nw][nex]+t_now>T)
+            if (dist[nw][nex] + t_now > T)
                 break;
             while (nw != nex)
             {
@@ -498,7 +509,7 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
                 {
                     if (dist[nw][nex] == dist[(*itr).F][nex] + (*itr).S)
                     {
-                        if (t_now+(*itr).S>T)
+                        if (t_now + (*itr).S > T)
                             break;
                         t_now += (*itr).S;
                         if (visited[(*itr).F] == 0)
@@ -513,20 +524,26 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
             }
         }
         ld score_delta = score_new - score_mx;
-        if (exp(score_delta/temp)>randxor01()){
+
+        debug_delta[0]++;
+        debug_delta[1] += score_delta / (ld)1000000.0;
+
+        if (exp(score_delta / temp) > randxor01())
+        {
             score_mx += score_delta;
-            
-            if (mx<score_mx){
+
+            if (mx < score_mx)
+            {
                 mx = score_mx;
                 ans_root = root;
             }
         }
-        else{
+        else
+        {
             swap(root[x + 1], root[x + 2]);
         }
         cnt++;
     }
-
 
     t_now = t_last;
     nw = ans_root[0];
@@ -547,7 +564,8 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
                 {
                     if (t_now + (*itr).S > T)
                         break;
-                    rep(xx,(*itr).S){
+                    rep(xx, (*itr).S)
+                    {
                         ans[t_now] = (*itr).F;
                         t_now++;
                     }
@@ -562,7 +580,11 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
             }
         }
     }
-    
+    if (debug)
+    {
+        cout << "delta ave : ";
+        cout << debug_delta[1] / debug_delta[0] << ENDL;
+    }
 
     if (debug && time_display)
     {
