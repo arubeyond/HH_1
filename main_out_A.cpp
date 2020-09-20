@@ -39,8 +39,8 @@ const char ENDL = '\n';
 //cout << fixed << setprecision(17) << res << endl;
 const ll MOD = 998244353;
 
-bool debug = true;
-bool time_display = true;
+bool debug = false;
+bool time_display = false;
 
 const ll T = 10000;
 const ll MAX_V = 400;
@@ -367,30 +367,12 @@ ll CALC_MAIN(string path)
         read_csv(path);
     else
         INPUT();
-    if (debug && time_display)
-    {
-        cout << "input end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
 
     //initialize
     init();
-    if (debug && time_display)
-    {
-        cout << "init end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
 
     //距離の計算
     make_dist();
-    if (debug && time_display)
-    {
-        cout << "calc dist end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
 
     //main_treatment
     //注文がk個以上のときすべて回る（0を通ったら追加する）
@@ -404,6 +386,8 @@ ll CALC_MAIN(string path)
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
              << ENDL;
     }
+    
+    //output
     if (!(debug))
     {
         rep(i, T) cout << ans[i] + 1 << ENDL;

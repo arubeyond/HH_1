@@ -39,8 +39,8 @@ const char ENDL = '\n';
 //cout << fixed << setprecision(17) << res << endl;
 const ll MOD = 998244353;
 
-bool debug = true;
-bool time_display = true;
+bool debug = false;
+bool time_display = false;
 
 const ll T = 10000;
 const ll MAX_V = 400;
@@ -55,7 +55,7 @@ int input_data[32500],
     V, E, ord_target[10005], ans[10005], place[10005][4];
 //ans[t]:時刻tのコマンド-1
 //place[t]：時刻tのはじめ(コマンド入力前)に
-            //辺[0][1]の[0]から[2]進んだ場所にいて、[3]を目的地にしている
+//辺[0][1]の[0]から[2]進んだ場所にいて、[3]を目的地にしている
 ld dist[405][405], ord_have[10005][405][3], ord_nhave[10005][405][3];
 multimap<int, int> edge[405];
 
@@ -86,7 +86,6 @@ string int_to_string(int i)
         return "0" + ans;
     return ans;
 }
-
 
 ld calc_value(int t, int i)
 {
@@ -125,7 +124,8 @@ void read_csv(string path)
     ifs.close();
 }
 
-void INPUT(){
+void INPUT()
+{
 
     cin >> input_data[0] >> input_data[1];
     rep(i, input_data[1]) cin >> input_data[3 * i + 2] >> input_data[3 * i + 3] >> input_data[3 * i + 4];
@@ -157,12 +157,15 @@ void init()
         edge[v].insert(mp(u, d));
     }
     int idx = 3 * E + 3;
-    rep(t,T){
-        if (input_data[idx]){
+    rep(t, T)
+    {
+        if (input_data[idx])
+        {
             ord_target[t] = input_data[idx + 2] - 1;
             idx += 3;
         }
-        else{
+        else
+        {
             ord_target[t] = 0;
             idx++;
         }
@@ -198,14 +201,17 @@ void make_dist()
     }
 }
 
-ld main_loop(){
+ld main_loop()
+{
     int bef = 0;                  //最後に店舗を訪れた時刻
     vector<set<int>> ord_list(V); //受注した注文
     multimap<int, int> ord_all;   //受注した注文の時刻、場所。bef以下で最大の注文場所へ向かう
     vector<int> ord_cnt(2, 0);    //積んでいない注文、積んだ注文
     vector<int> now(4, 0);        //辺(u,v)のuから距離dの地点にいて、最終的にwに向かっている
-    rep(i,V){
-        rep(j,3){
+    rep(i, V)
+    {
+        rep(j, 3)
+        {
             ord_have[0][i][j] = 0;
             ord_nhave[0][i][j] = 0;
         }
@@ -260,13 +266,13 @@ ld main_loop(){
             now[2]++;
         }
         else if (now[0] != now[3])
-            search_next = true;  //頂点にいるが目的地についていないとき
+            search_next = true; //頂点にいるが目的地についていないとき
         else if (ord_cnt[1] >= orders_to_move)
         {
             //頂点にいて、注文を十分に持っているとき、次の目的地を探す
             search_next = true;
             if ((*ord_all.begin()).F + deadline >= t)
-                now[3] = (*ord_all.begin()).S;  //deadline以上たっている注文があれば優先
+                now[3] = (*ord_all.begin()).S; //deadline以上たっている注文があれば優先
             else
             {
                 //スコア/距離が最大の頂点を目的地とする
@@ -288,7 +294,7 @@ ld main_loop(){
             search_next = true;
             now[3] = 0;
         }
-        if (search_next) 
+        if (search_next)
         {
             //目的地に向けて次移動する頂点を決定する
             for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
@@ -333,8 +339,9 @@ ld main_loop(){
 
         //ord_have,ord_nhave,placeの更新
         rep(i, 4) place[t][i] = now[i];
-        rep(i,V){
-            rep(j,3)
+        rep(i, V)
+        {
+            rep(j, 3)
             {
                 ord_have[t + 1][i][j] = ord_have[t][i][j];
                 ord_nhave[t + 1][i][j] = ord_nhave[t][i][j];
@@ -356,32 +363,16 @@ ll CALC_MAIN(string path)
     }
 
     //input
-    if (debug)read_csv(path);
-    else INPUT();
-    if (debug && time_display)
-    {
-        cout << "input end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
+    if (debug)
+        read_csv(path);
+    else
+        INPUT();
 
     //initialize
     init();
-    if (debug && time_display)
-    {
-        cout << "init end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
 
     //距離の計算
     make_dist();
-    if (debug && time_display)
-    {
-        cout << "calc dist end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
 
     //main_treatment
     //注文がk個以上のときすべて回る（0を通ったら追加する）
@@ -389,19 +380,19 @@ ll CALC_MAIN(string path)
     //注文からdeadline経っている商品は優先的に配達する
     ld score = main_loop();
 
-
-
     if (debug && time_display)
     {
         cout << "CALC_MAIN end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
              << ENDL;
     }
+
+    //output
     if (!(debug))
     {
         rep(i, T) cout << ans[i] + 1 << ENDL;
     }
-    
+
     return score;
 }
 
