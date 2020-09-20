@@ -235,6 +235,9 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
              << ENDL;
     }
 
+    bool check9500 = true;
+    bool go9500 = false;
+    int t_last = T;
     int z = 0;
     rep(t, T)
     {
@@ -278,7 +281,43 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
 
         //行動の決定
         bool search_next = false;
-        if (now[2] > 0)
+
+        //9500のチェックなど
+        if (check9500)
+        {
+            if (now[2] > 0)
+            {
+                int dist_a = t + dist[now[0]][0] + now[2];
+                int dist_b = t + dist[now[1]][0] + (*edge[now[0]].find(now[1])).S - now[2];
+                if (dist_a >= 9500 && dist_b >= dist_a)
+                {
+                    check9500 = false;
+                    go9500 = true;
+                    now[3] = 0;
+                    swap(now[0], now[1]);
+                    now[2] = ((*edge[now[0]].find(now[1])).S - now[2]);
+                }
+                else if (dist_b >= 9500 && dist_a >= dist_b)
+                {
+                    check9500 = false;
+                    go9500 = true;
+                    now[3] = 0;
+                }
+            }
+            else if (t + dist[now[0]][0] >= 9500)
+            {
+                check9500 = false;
+                go9500 = true;
+                now[3] = 0;
+            }
+        }
+
+        if (go9500 && now[0] == 0 && now[1] == 0 && now[2] == 0)
+        {
+            t_last = t;
+            break;
+        }
+        else if (now[2] > 0)
         {
             ans[t] = now[1];
             now[2]++;
@@ -289,12 +328,7 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
         {
             search_next = true;
             if ((*ord_all.begin()).F + deadline >= t)
-            {
                 now[3] = (*ord_all.begin()).S;
-            }
-            //auto idx = ord_all.upper_bound(bef);
-            //idx--;
-            //now[3] = (*idx).S;
             else
             {
                 ld mx = 0;
@@ -303,9 +337,7 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
                     if (i == now[0])
                         continue;
                     if (comp_max(mx, calc_value(t, ord_have[i]) / (ld)dist[now[0]][i]))
-                    {
                         now[3] = i;
-                    }
                 }
             }
         }
@@ -314,7 +346,7 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
             search_next = true;
             now[3] = 0;
         }
-        if (search_next) //返上orstay以外
+        if (search_next) //次の辺を選択
         {
             for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
             {
@@ -358,6 +390,69 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
             rep(j, 3) ord_have[now[0]][j] = 0;
         }
     }
+
+    //t_lastの行動決定フェーズから
+    //Tまでの行動を焼きなまし法を用いて最大化を行う
+
+    //初期解の設定：注文がある頂点の中で最も近い頂点を巡回する
+    int t_now = t_last;
+    vector<int> root(1, 0);
+    vector<int> visited(V, 0);
+    visited[0] = 1;
+    while (t_now < T)
+    {
+        int sz = root.size();
+        int now = root[sz - 1];
+        int nex = -1;
+        int nex_v = -1;
+        rep(i, V)
+        {
+            if (i == now || t_now + dist[now][i] > T)
+                continue;
+            int i_v = (visited[i] ^ 1) * calc_value(t_now, ord_have[i]) / (ld)(dist[now][i]);
+            if (i_v > nex_v)
+            {
+                nex_v = i_v;
+                nex = i;
+            }
+        }
+        if (nex == -1)
+            break;
+        t_now += dist[now][nex];
+        while (now != nex)
+        {
+            for (auto itr = edge[now].begin(); itr != edge[now].end(); itr++)
+            {
+                if (dist[now][nex] == dist[(*itr).F][nex] + (*itr).S)
+                {
+                    now = (*itr).F;
+                    root.emplace_back((*itr).F);
+                    visited[(*itr).F] = 1;
+                    break;
+                }
+            }
+        }
+    }
+    rep(i, root.size() - 1)
+    {
+        int now = root[i];
+        int nex = root[i + 1];
+        rep(d, (*edge[now].find(nex)).S)
+        {
+            ans[t_last] = nex;
+            t_last++;
+        }
+        if (visited[nex])
+        {
+            score += calc_value(t_last, ord_have[nex]);
+            visited[nex] = 0;
+        }
+    }
+
+    if (debug)
+    {
+    }
+
     if (debug && time_display)
     {
         cout << "CALC_MAIN end at : "
@@ -394,7 +489,7 @@ int main()
         CALC_MAIN(path_in, o_t_m, dl);
         return 0;
     }
-    int n = 10;
+    int n = 1;
     ld s_score = 0;
     rep(i, n)
     {

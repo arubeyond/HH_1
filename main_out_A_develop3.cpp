@@ -39,7 +39,7 @@ const char ENDL = '\n';
 //cout << fixed << setprecision(17) << res << endl;
 const ll MOD = 998244353;
 
-bool debug = false;
+bool debug = true;
 bool time_display = false;
 
 const ll T = 10000;
@@ -47,6 +47,8 @@ const ll MAX_V = 400;
 const ll MIN_V = 200;
 const int MAX_Degree = 5;
 const ll MAX_DIST = 5000;
+
+
 
 inline int string_to_int(string s)
 {
@@ -235,10 +237,9 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
              << ENDL;
     }
 
-    bool check9500 = true;
-    bool go9500 = false;
-    int t_last = T;
     int z = 0;
+    bool check_9500 = true;
+    int t_last = T;
     rep(t, T)
     {
         //時刻tからt+1の処理をおこなう
@@ -249,7 +250,7 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
         if (ord_num)
         {
             z++;
-
+            
             ord_id[t] = input_data[idx];
             idx++;
             int target = input_data[idx] - 1;
@@ -281,81 +282,80 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
 
         //行動の決定
         bool search_next = false;
-
-        //9500のチェックなど
-        if (check9500){
+        if (check_9500)
+        {
             if (now[2] > 0)
             {
                 int dist_a = t + dist[now[0]][0] + now[2];
                 int dist_b = t + dist[now[1]][0] + (*edge[now[0]].find(now[1])).S - now[2];
                 if (dist_a >= 9500 && dist_b >= dist_a)
                 {
-                    check9500 = false;
-                    go9500 = true;
+                    check_9500 = false;
                     now[3] = 0;
                     swap(now[0], now[1]);
-                    now[2] = ((*edge[now[0]].find(now[1])).S - now[2]);
+                    now[2] = (*edge[now[0]].find(now[1]).S - now[2]);
+                    search_next = false;
                 }
                 else if (dist_b >= 9500 && dist_a >= dist_b)
                 {
-                    check9500 = false;
-                    go9500 = true;
+                    check_9500 = false;
                     now[3] = 0;
+                    search_next = false;
                 }
             }
             else if (t + dist[now[0]][0] >= 9500)
             {
-                check9500 = false;
-                go9500 = true;
+                check_9500 = false;
+                now[3] = 0;
+                search_next = true;
+            }
+            else if (now[0] != now[3])
+                search_next = true;
+            else if (ord_cnt[1] >= orders_to_move)
+            {
+                search_next = true;
+                if ((*ord_all.begin()).F + deadline >= t)
+                    now[3] = (*ord_all.begin()).S;
+
+                else
+                {
+                    ld mx = 0;
+                    repf(i, 1, V)
+                    {
+                        if (i == now[0])
+                            continue;
+                        if (comp_max(mx, calc_value(t, ord_have[i]) / (ld)dist[now[0]][i]))
+                            now[3] = i;
+                    }
+                }
+            }
+            else if (now[0] != 0)
+            {
+                search_next = true;
                 now[3] = 0;
             }
         }
-
-
-
-        if (go9500 && now[0]==0 && now[1]==0 && now[2]== 0){
-                t_last = t;
-                break;
+        else if (now[0]==now[1] && now[0]==0){
+            t_last = t;
+            break;
         }
-        else if (now[2] > 0)
-        {
-            ans[t] = now[1];
-            now[2]++;
-        }
-        else if (now[0] != now[3])
+        else if (now[0]==now[1])
             search_next = true;
-        else if (ord_cnt[1] >= orders_to_move)
-        {
-            search_next = true;
-            if ((*ord_all.begin()).F + deadline >= t)
-                now[3] = (*ord_all.begin()).S;
-            else
+
+            if (search_next) //頂点にいて、stayしない場合
             {
-                ld mx = 0;
-                repf(i, 1, V)
+                for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
                 {
-                    if (i == now[0])
-                        continue;
-                    if (comp_max(mx, calc_value(t, ord_have[i]) / (ld)dist[now[0]][i]))
-                        now[3] = i;
+                    if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
+                        ans[t] = (*itr).F;
                 }
+                now[1] = ans[t];
+                now[2] = 1;
             }
-        }
-        else if (now[0] != 0)
-        {
-            search_next = true;
-            now[3] = 0;
-        }
-        if (search_next) //次の辺を選択
-        {
-            for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
-            {
-                if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
-                    ans[t] = (*itr).F;
+            else{
+                ans[t] = now[1];
+                now[2]++;
             }
-            now[1] = ans[t];
-            now[2] = 1;
-        }
 
         //移動結果の処理
         //配達完了処理とスコアの集計
@@ -391,58 +391,43 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
         }
     }
 
+    //時刻9500以降で店舗にいるnow = [0,0,0,0]の状態
+    //t_lastの行動決定から後を行う
+    //ここからできる限りスコアが大きくなるような移動を探索する
+    int cnt = 0;
+    multimap<int, vector<int>> root;
+    //距離昇順で、スコア、ルート、（できればどこを通ったか）を記録したオブジェクトが欲しい。
+    root.insert(mp(0, {0}));
+    while (true){
+        if (cnt%10000==0){
+            double time = duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6;
+            if(time>29.9)
+                break;
+        }
+        //距離が最も短いルートを1つ抽出して、1つ頂点を移動する
+        //まだルート内で通っていない場所ならスコア計算
 
-    //t_lastの行動決定フェーズから
-    //Tまでの行動を焼きなまし法を用いて最大化を行う
-
-    //初期解の設定：注文がある頂点の中で最も近い頂点を巡回する
-    int t_now = t_last;
-    vector<int> root(1, 0);
-    vector<int> visited(V, 0);
-    visited[0] = 1;
-    while (t_now<T){
-        int sz = root.size();
-        int now = root[sz - 1];
-        int nex = -1;
-        int nex_v = -1;
-        rep(i,V){
-            if(i==now || t_now+dist[now][i]>T)
+        int dist_now = (*root.begin()).F;
+        vector<int> root_now = (*root.begin()).S;
+        root.erase(root.begin());
+        int ng = -1;
+        int sz = root_now.size();
+        if (sz>2){
+            if (root_now[sz-3]==root_now[sz-1]){
+                ng = root_now[sz - 2];
+            }
+        }
+        for (auto itr = edge[root_now[sz - 1]].begin(); itr != edge[root_now[sz - 1]].end();itr++){
+            if ((*itr).F == ng){
                 continue;
-            int i_v = (visited[i]^1) * calc_value(t_now, ord_have[i]) / (ld)(dist[now][i]);
-            if (i_v>nex_v){
-                nex_v = i_v;
-                nex = i;
             }
+            //ルートを追加する
+            //もしT-t_lastを超えているなら追加しない
+            //ルート内で通ったかどうかをみて、通ってないならスコアを加算
+            //追加する際に、スコアを暫定値と比べる
         }
-        if (nex==-1)
-            break;
-        t_now += dist[now][nex];
-        while(now!=nex){
-            for (auto itr = edge[now].begin(); itr != edge[now].end();itr++){
-                if (dist[now][nex]==dist[(*itr).F][nex]+(*itr).S){
-                    now = (*itr).F;
-                    root.emplace_back((*itr).F);
-                    visited[(*itr).F] = 1;
-                    break;
-                }
-            }
-        }
-    }
-    rep(i,root.size()-1){
-        int now = root[i];
-        int nex = root[i + 1];
-        rep(d,(*edge[now].find(nex)).S){
-            ans[t_last] = nex;
-            t_last++;
-        }
-        if (visited[nex]){
-            score += calc_value(t_last, ord_have[nex]);
-            visited[nex] = 0;
-        }
-    }
 
-    if(debug){
-
+            cnt++;
     }
 
     if (debug && time_display)
@@ -455,11 +440,9 @@ ll CALC_MAIN(string path, int orders_to_move, int deadline)
     {
         rep(i, T) cout << ans[i] + 1 << ENDL;
     }
-    if (debug && 0)
-    {
-        cout << "leave order num :" << z << ENDL;
-        for (auto itr = ord_all.begin(); itr != ord_all.end(); itr++)
-        {
+    if(debug && 0){
+        cout <<"leave order num :"<< z  << ENDL;
+        for (auto itr = ord_all.begin(); itr != ord_all.end();itr++){
             cout << (*itr).F << " ";
         }
         cout << ENDL;
@@ -481,10 +464,9 @@ int main()
         CALC_MAIN(path_in, o_t_m, dl);
         return 0;
     }
-    int n = 1;
+    int n = 10;
     ld s_score = 0;
-    rep(i, n)
-    {
+    rep(i,n){
         cout << ENDL;
         cout << "start " << i << ENDL;
         s_score += (ld)CALC_MAIN(path + int_to_string(i) + ".csv", o_t_m, dl) / (ld)100000000;
