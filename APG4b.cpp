@@ -40,6 +40,7 @@ const char ENDL = '\n';
 const ll MOD = 998244353;
 
 bool debug = true;
+bool time_display = true;
 
 const ll T = 10000;
 const ll MAX_V = 400;
@@ -47,7 +48,16 @@ const ll MIN_V = 200;
 const int MAX_Degree = 5;
 const ll MAX_DIST = 5000;
 
-const int orders_to_move = 5;
+int orders_to_move = 9;
+int deadline = 900;
+
+int input_data[32500],
+    V, E, ord_target[10005], ans[10005], place[10005][4];
+//ans[t]:時刻tのコマンド-1
+//place[t]：時刻tのはじめ(コマンド入力前)に
+            //辺[0][1]の[0]から[2]進んだ場所にいて、[3]を目的地にしている
+ld dist[405][405], ord_have[10005][405][3], ord_nhave[10005][405][3];
+multimap<int, int> edge[405];
 
 inline int string_to_int(string s)
 {
@@ -77,7 +87,27 @@ string int_to_string(int i)
     return ans;
 }
 
-void read_csv(string path, vector<int> &output)
+
+ld calc_value(int t, int i)
+{
+    ld cons = T * T - t * t;
+    return (cons * ord_have[t][i][0] + (ld)2.0 * (ld)t * ord_have[t][i][1] - ord_have[t][i][2]);
+}
+
+bool comp_max(ld &a, ld b)
+{
+    if (a < b)
+    {
+        a = b;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+void read_csv(string path)
 {
     ifstream ifs(path);
     string str_buf;
@@ -88,57 +118,35 @@ void read_csv(string path, vector<int> &output)
         istringstream i_stream(str_buf);
         while (getline(i_stream, str_conma_buf, ','))
         {
-            output[idx] = (string_to_int(str_conma_buf));
+            input_data[idx] = (string_to_int(str_conma_buf));
             idx++;
         }
     }
     ifs.close();
 }
 
-ld calc_value(int t, vector<ld> hav)
-{
-    ld cons = T * T - t * t;
-    return (hav[0] * 2 * (ld)t - hav[1] + cons * hav[2]);
+void INPUT(){
+
+    cin >> input_data[0] >> input_data[1];
+    rep(i, input_data[1]) cin >> input_data[3 * i + 2] >> input_data[3 * i + 3] >> input_data[3 * i + 4];
+    cin >> input_data[(3 * input_data[1] + 2)];
+    int idx = 3 * input_data[1] + 3;
+    rep(t, T)
+    {
+        cin >> input_data[idx];
+        if (input_data[idx])
+        {
+            cin >> input_data[idx + 1] >> input_data[idx + 2];
+            idx += 2;
+        }
+        idx++;
+    }
 }
 
-ll CALC_MAIN(string path)
+void init()
 {
-
-    auto startClock = system_clock::now();
-    if (debug)
-    {
-        cout << "CALC_MAIN start at : "
-             << duration_cast<microseconds>(startClock - startClock).count() * 1e-6
-             << ENDL;
-    }
-
-    ll score = 0;
-
-    //input
-    vector<int> input_data(33000);
-    if (debug)
-    {
-        read_csv(path, input_data);
-    }
-    else
-    {
-        cin >> input_data[0] >> input_data[1];
-        rep(i, input_data[1]) cin >> input_data[3 * i + 2] >> input_data[3 * i + 3] >> input_data[3 * i + 4];
-        rep(i, input_data[0]) cin >> input_data[2 + 3 * input_data[1] + i];
-        cin >> input_data[(2 + 3 * input_data[1] + input_data[0])];
-    }
-    if (debug)
-    {
-        cout << "input end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
-
-    //initialize
-    int V, E;
     V = input_data[0];
     E = input_data[1];
-    vector<multimap<int, int>> edge(V);
     rep(i, E)
     {
         int u, v, d;
@@ -148,15 +156,22 @@ ll CALC_MAIN(string path)
         edge[u].insert(mp(v, d));
         edge[v].insert(mp(u, d));
     }
-    if (debug)
-    {
-        cout << "init end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
+    int idx = 3 * E + 3;
+    rep(t,T){
+        if (input_data[idx]){
+            ord_target[t] = input_data[idx + 2] - 1;
+            idx += 3;
+        }
+        else{
+            ord_target[t] = 0;
+            idx++;
+        }
     }
+}
 
-    //距離の計算
-    vector<vector<ld>> dist(V, vector<ld>(V, infi));
+void make_dist()
+{
+    rep(i, V) rep(j, V) dist[i][j] = infi;
     rep(i, V)
     {
         //頂点iからのダイクストラ
@@ -181,7 +196,187 @@ ll CALC_MAIN(string path)
             }
         }
     }
-    if (debug)
+}
+
+ld main_loop(){
+    int bef = 0;                  //最後に店舗を訪れた時刻
+    vector<set<int>> ord_list(V); //受注した注文
+    multimap<int, int> ord_all;   //受注した注文の時刻、場所。bef以下で最大の注文場所へ向かう
+    vector<int> ord_cnt(2, 0);    //積んでいない注文、積んだ注文
+    vector<int> now(4, 0);        //辺(u,v)のuから距離dの地点にいて、最終的にwに向かっている
+    rep(i,V){
+        rep(j,3){
+            ord_have[0][i][j] = 0;
+            ord_nhave[0][i][j] = 0;
+        }
+    }
+    ld score = 0;
+
+    //ord_(n)have[t]:時刻t終了時点のスコア記録
+    //ord_(n)have[-1]:全部0
+    //place[t]:時刻t終了時点の位置記録
+    //Tlastで参照するときはTlast-1の記録から復元する
+    rep(t, T)
+    {
+        //時刻tからt+1の処理をおこなう
+
+        //注文を受け取る
+        if (ord_target[t])
+        {
+            int tar = ord_target[t];
+            ord_list[tar].insert(t);
+            ord_all.insert(mp(t, tar));
+
+            //積んでいない荷物の集計
+            ord_cnt[0]++;
+            ord_nhave[t][tar][0]++;
+            ord_nhave[t][tar][1] += t;
+            ord_nhave[t][tar][2] += pow(t, 2);
+        }
+
+        //商品を積む
+        if (now[0] == now[1] && now[0] == 0)
+        {
+            ord_cnt[1] += ord_cnt[0];
+            ord_cnt[0] = 0;
+            rep(i, V)
+            {
+                rep(j, 3)
+                {
+                    ord_have[t][i][j] += ord_nhave[t][i][j];
+                    ord_nhave[t][i][j] = 0;
+                }
+            }
+            bef = t;
+        }
+
+        //行動の決定
+        bool search_next = false;
+        ans[t] = -2;
+        if (now[2] > 0)
+        {
+            //辺の上にいるとき
+            ans[t] = now[1];
+            now[2]++;
+        }
+        else if (now[0] != now[3])
+            search_next = true;  //頂点にいるが目的地についていないとき
+        else if (ord_cnt[1] >= orders_to_move)
+        {
+            //頂点にいて、注文を十分に持っているとき、次の目的地を探す
+            search_next = true;
+            if ((*ord_all.begin()).F + deadline >= t)
+                now[3] = (*ord_all.begin()).S;  //deadline以上たっている注文があれば優先
+            else
+            {
+                //スコア/距離が最大の頂点を目的地とする
+                ld mx = 0;
+                repf(i, 1, V)
+                {
+                    if (i == now[0])
+                        continue;
+                    if (comp_max(mx, calc_value(t, i) / (ld)dist[now[0]][i]))
+                    {
+                        now[3] = i;
+                    }
+                }
+            }
+        }
+        else if (now[0] != 0)
+        {
+            //注文が十分にないとき店舗へ向かう
+            search_next = true;
+            now[3] = 0;
+        }
+        if (search_next) 
+        {
+            //目的地に向けて次移動する頂点を決定する
+            for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
+            {
+                if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
+                    ans[t] = (*itr).F;
+            }
+            now[1] = ans[t];
+            now[2] = 1;
+        }
+
+        //移動結果の処理
+        if (now[2] && now[2] == (*edge[now[0]].find(now[1])).S)
+        {
+            //辺の最後にいたら頂点へ位置情報を修正
+            now[0] = now[1];
+            now[2] = 0;
+        }
+
+        //配達完了処理とスコアの集計
+        if (now[2] == 0 && now[0] != 0)
+        {
+            //店舗以外の頂点にいる場合:その頂点のbef以前の注文を受け取る
+            for (auto itr = ord_list[now[0]].begin(); itr != ord_list[now[0]].end(); itr++)
+            {
+                if ((*itr) > bef)
+                {
+                    ord_list[now[0]].erase(ord_list[now[0]].begin(), itr);
+                    break;
+                }
+                ord_all.erase((*itr));
+                ord_cnt[1]--;
+                score += pow(T, 2) - pow(t - (*itr), 2);
+                //score += calc_value(t,now[0]);
+            }
+            if ((!ord_list[now[0]].empty()) && (*ord_list[now[0]].begin()) <= bef)
+            {
+                ord_list[now[0]].erase(all(ord_list[now[0]]));
+            }
+            rep(j, 3) ord_have[t][now[0]][j] = 0;
+        }
+
+        //ord_have,ord_nhave,placeの更新
+        rep(i, 4) place[t][i] = now[i];
+        rep(i,V){
+            rep(j,3)
+            {
+                ord_have[t + 1][i][j] = ord_have[t][i][j];
+                ord_nhave[t + 1][i][j] = ord_nhave[t][i][j];
+            }
+        }
+    }
+    return score;
+}
+
+ll CALC_MAIN(string path)
+{
+
+    auto startClock = system_clock::now();
+    if (debug && time_display)
+    {
+        cout << "CALC_MAIN start at : "
+             << duration_cast<microseconds>(startClock - startClock).count() * 1e-6
+             << ENDL;
+    }
+
+    //input
+    if (debug)read_csv(path);
+    else INPUT();
+    if (debug && time_display)
+    {
+        cout << "input end at : "
+             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
+             << ENDL;
+    }
+
+    //initialize
+    init();
+    if (debug && time_display)
+    {
+        cout << "init end at : "
+             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
+             << ENDL;
+    }
+
+    //距離の計算
+    make_dist();
+    if (debug && time_display)
     {
         cout << "calc dist end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
@@ -191,148 +386,22 @@ ll CALC_MAIN(string path)
     //main_treatment
     //注文がk個以上のときすべて回る（0を通ったら追加する）
     //注文がk個未満のとき0へ向かう。（配達完了処理もちゃんとする）
-
-    vector<int> ans(T, -1);
-    int idx = 2 + 3 * E + V + 1;
-    vector<int> ord_id(T, -1);  //時刻tの注文のID
-    int ord_have = 0;  //積んだ注文の数
-    int ord_nhave = 0;  //積んでいない注文の数
-    int bef = 0;  //最後に店舗を訪れた時刻
-    vector<set<int>> order(V);  //受注した注文
-    multimap<int, int> ord_all; //受注した注文の時刻、場所。bef以下で最大の注文場所へ向かう
-
-    vector<int> now(4, 0);  //辺(u,v)のuから距離dの地点にいて、最終的にwに向かっている
-    //main_loop
-
-    if (debug)
-    {
-        cout << "main init end at : "
-             << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
-             << ENDL;
-    }
-
-    rep(t, T)
-    {
-        //時刻tからt+1の処理をおこなう
-        //注文を受け取る
-        if (debug && t % 2500 == 0)
-        {
-            cout << "itr, score : " << t << " " << score << ENDL;
-        }
-        int ord_num;
-        if(debug){
-            ord_num = input_data[idx];
-            idx++;
-        }
-        else{
-            cin >> ord_num;}
-        if (ord_num)
-        {
-            int target;
-            if(debug){
-                ord_id[t] = input_data[idx];
-                idx++;
-                target = input_data[idx];
-                idx++;
-            }
-            else{
-            cin >> ord_id[t];
-            cin >> target;
-            }
-            target--;
-            order[target].insert(t);
-            ord_all.insert(mp(t, target));
-            ord_nhave++;
-            //各頂点の評価更新
-        }
-        //商品を積む
-        if (now[0]==now[1] && now[0]==0){
-            ord_have += ord_nhave;
-            ord_nhave = 0;
-            bef = t;
-        }
-
-        //行動の決定
-        bool search_next = false;
-        if (now[2]>0){
-            ans[t] = now[1];
-            now[2]++;
-        }
-        else if (now[0]!=now[3])
-            search_next = true;
-        else if (ord_have>=orders_to_move){
-            search_next = true;
-            auto idx = ord_all.upper_bound(bef);
-            idx--;
-            now[3] = (*idx).S;
-        }
-        else if (now[0]!=0){
-            search_next = true;
-            now[3] = 0;
-        }
-        if (search_next)  //返上orstay以外
-        {
-            for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
-            {
-                if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
-                    ans[t] = (*itr).F;
-            }
-            now[1] = ans[t];
-            now[2] = 1;
-        }
-        
+    //注文からdeadline経っている商品は優先的に配達する
+    ld score = main_loop();
 
 
-        //移動結果の処理
-        int z = 0;//z : 時刻t+1に完了した注文の数
-        if (now[2] && now[2]==(*edge[now[0]].find(now[1])).S){
-            now[0] = now[1];
-            now[2] = 0;
-        }
-        //配達完了処理とスコアの集計
-        if (now[2]==0 && now[0]!=0){
-            //店舗以外の頂点にいる場合、その頂点のbef以前の注文を受け取る
-            for (auto itr = order[now[0]].begin(); itr != order[now[0]].end();itr++){
-                if((*itr)>bef){
-                    order[now[0]].erase(order[now[0]].begin(), itr);
-                    break;
-                }
-                ord_all.erase((*itr));
-                ord_have--;
-                z++;
-                score += pow(T, 2) - pow(t - (*itr), 2);
-            }
-            if ((!order[now[0]].empty()) && (*order[now[0]].begin())<=bef){
-                order[now[0]].erase(all(order[now[0]]));
-            }
-        }
 
-        if (!(debug))
-        {
-            int cnt, x;
-            cin >> cnt;
-            rep(i, cnt) cin >> x;
-            if (ans[t] == -1)
-                cout << -1 << ENDL;
-            else
-                cout << ans[t] + 1 << ENDL;
-
-            string verdict;
-            cin >> verdict;
-            if (verdict == "NG")
-                return -1;
-            cin >> cnt;
-            rep(i, cnt) cin >> x;
-        }
-    }
-
-    if (debug)
+    if (debug && time_display)
     {
         cout << "CALC_MAIN end at : "
              << duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6
              << ENDL;
     }
-
+    if (!(debug))
+    {
+        rep(i, T) cout << ans[i] + 1 << ENDL;
+    }
+    
     return score;
 }
 
@@ -340,18 +409,21 @@ int main()
 {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
-    const string path = "./test_B/input_";
+    const string path = "./test_A/input_";
+    string path_in = path + int_to_string(0) + ".csv";
+    string problem = "A";
+    if (!(debug))
+    {
+        CALC_MAIN(path_in);
+        return 0;
+    }
     int n = 1;
-    string problem = "B";
+    ld s_score = 0;
     rep(i, n)
     {
-        string path_in = path + int_to_string(i) + ".csv";
-        ld ans = (ld)CALC_MAIN(path_in) * (ld)30.0 / (ld)1000000000.0;
-        if (ans==-1)
-            return 0;
-        if (debug)
-        {
-            cout << "final score : " << ans << ENDL;
-        }
+        cout << ENDL;
+        cout << "start " << i << ENDL;
+        s_score += (ld)CALC_MAIN(path + int_to_string(i) + ".csv") / (ld)100000000;
     }
+    cout << "ave score : " << s_score / (ld)n << ENDL;
 }
