@@ -39,7 +39,7 @@ const char ENDL = '\n';
 //cout << fixed << setprecision(17) << res << endl;
 const ll MOD = 998244353;
 
-bool debug = false;
+bool debug = true;
 bool time_display = false;
 
 const ll T = 10000;
@@ -91,6 +91,12 @@ ld calc_value(int t, int i)
 {
     ld cons = T * T - t * t;
     return (cons * ord_have[t][i][0] + (ld)2.0 * (ld)t * ord_have[t][i][1] - ord_have[t][i][2]);
+}
+
+ld calc_value2(int t, vector<ld> have)
+{
+    ld cons = T * T - t * t;
+    return (cons * have[0] + (ld)2.0 * (ld)t * have[1] - have[2]);
 }
 
 bool comp_max(ld &a, ld b)
@@ -201,7 +207,7 @@ void make_dist()
     }
 }
 
-void main_loop()
+ld main_loop()
 {
     int bef = 0;                  //最後に店舗を訪れた時刻
     vector<set<int>> ord_list(V); //受注した注文
@@ -350,7 +356,7 @@ void main_loop()
         }
         score[t + 1] = score[t];
     }
-    return score;
+    return score[T];
 }
 
 ld sub_loop(int Tlast){
@@ -364,11 +370,147 @@ ld sub_loop(int Tlast){
     vector<int> now(4, 0);
     rep(i, 4) now[i] = place[Tlast - 1][i];
     ld sc = score[Tlast - 1];
+    now[3] = 0;
+
+    /*
+    if (now[2]>0){
+        //辺の上にいるため、引き返すかどうかを選択。進まなくてよい
+        if (now[2]+dist[now[0]][0]<(*(edge[now[0]].find(now[1]))).S-now[2]+dist[now[1]][0]){
+            swap(now[0], now[1]);
+            now[2] -= (*(edge[now[0]].find(now[1]))).S;
+            now[2] *= -1;
+        }
+    }
+    */
 
     //１．店舗まで移動する
+    int t = Tlast;
+    while (t<T){
+        if (now[0]==now[1] && now[0]==0)
+            break;
+        //時刻tからt+1の処理をおこなう
+
+        //注文を受け取る
+        if (ord_target[t])
+        {
+            int tar = ord_target[t];
+            //積んでいない荷物の集計
+            nhave[tar][0]++;
+            nhave[tar][1] += t;
+            nhave[tar][2] += pow(t, 2);
+        }
+
+        //行動の決定
+        if (now[2]>0){
+            now[2]++;
+            ans[t] = now[1];
+            }
+        else{
+            //目的地に向けて次移動する頂点を決定する
+            for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
+            {
+                if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
+                    ans[t] = (*itr).F;
+            }
+            now[1] = ans[t];
+            now[2] = 1;
+        }
+
+        //移動結果の処理
+        if (now[2] && now[2] == (*edge[now[0]].find(now[1])).S)
+        {
+            //辺の最後にいたら頂点へ位置情報を修正
+            now[0] = now[1];
+            now[2] = 0;
+        }
+
+        //配達完了処理とスコアの集計
+        if (now[2] == 0 && now[0] != 0)
+        {
+            sc += calc_value2(t,have[now[0]]);
+            rep(j, 3) have[now[0]][j] = 0;
+        }
+
+        t++;
+    }
     //２．スコア/距離の大きい順に回っていく
-    //１，２どちらでも注文の更新、荷物積み、配達の完了は通常通り行う
-    //ただし、移動先の決定が少し違う
+    while (t<T){
+        //時刻tからt+1の処理をおこなう
+
+        //注文を受け取る
+        if (ord_target[t])
+        {
+            int tar = ord_target[t];
+            //積んでいない荷物の集計
+            nhave[tar][0]++;
+            nhave[tar][1] += t;
+            nhave[tar][2] += pow(t, 2);
+        }
+
+        //商品を積む
+        if (now[0] == now[1] && now[0] == 0)
+        {
+            rep(i, V)
+            {
+                rep(j, 3)
+                {
+                    have[i][j] += nhave[i][j];
+                    nhave[i][j] = 0;
+                }
+            }
+        }
+        
+        //行動の決定
+        if(now[2]>0){
+            now[2]++;
+            ans[t] = now[1];
+        }
+        else{
+            if (now[0]==now[3])
+            {
+                //スコア/距離が最大の頂点を目的地とする
+                ld mx = 0;
+                repf(i, 1, V)
+                {
+                    if (i == now[0])
+                        continue;
+                    if (comp_max(mx, calc_value2(t, have[i]) / (ld)dist[now[0]][i]))
+                    {
+                        now[3] = i;
+                    }
+                }
+            }
+
+            //目的地に向けて次移動する頂点を決定する
+            for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
+            {
+                if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
+                    ans[t] = (*itr).F;
+            }
+            now[1] = ans[t];
+            now[2] = 1;
+        }
+
+        //移動結果の処理
+        if (now[2] && now[2] == (*edge[now[0]].find(now[1])).S)
+        {
+            //辺の最後にいたら頂点へ位置情報を修正
+            now[0] = now[1];
+            now[2] = 0;
+        }
+
+        //配達完了処理とスコアの集計
+        if (now[2] == 0 && now[0] != 0)
+        {
+            sc += calc_value2(t, have[now[0]]);
+            rep(j, 3) have[now[0]][j] = 0;
+        }
+
+        t++;
+    }
+    //１，２どちらでも注文の更新、荷物積み、配達の完了は通常通り行う。移動先の決定が少し違う
+
+    return sc;
 }
 
 ll CALC_MAIN(string path)
@@ -394,11 +536,43 @@ ll CALC_MAIN(string path)
     //距離の計算
     make_dist();
 
+    //最終的な解と値
+    vector<int> ans_final(T, -2);
+    ld mx_score = 0;
+
     //main_treatment
     //注文がk個以上のときすべて回る（0を通ったら追加する）
     //注文がk個未満のとき0へ向かう。（配達完了処理もちゃんとする）
     //注文からdeadline経っている商品は優先的に配達する
-    ld score = main_loop();
+    ld now_score = main_loop();
+    if (now_score>mx_score){
+        mx_score = now_score;
+        rep(i,T){
+            ans_final[i] = ans[i];
+        }
+    }
+
+    //sub_loopをTlast=9500から？試していく(30sec超えたら終わり)
+    int T_last = 9500;
+    while (T_last>0)
+    {
+        if (T_last)
+        {
+            double time = duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6;
+            if (time > 29.5)
+                break;
+        }
+        now_score = sub_loop(T_last);
+        if (now_score > mx_score)
+        {
+            mx_score = now_score;
+            rep(i, T)
+            {
+                ans_final[i] = ans[i];
+            }
+        }
+        T_last--;
+    }
 
     if (debug && time_display)
     {
@@ -410,10 +584,10 @@ ll CALC_MAIN(string path)
     //output
     if (!(debug))
     {
-        rep(i, T) cout << ans[i] + 1 << ENDL;
+        rep(i, T) cout << ans_final[i] + 1 << ENDL;
     }
 
-    return score;
+    return mx_score;
 }
 
 int main()
