@@ -360,6 +360,7 @@ ld main_loop()
 }
 
 ld sub_loop(int Tlast){
+    //init
     vector<vector<ld>> have(V, vector<ld>(3, 0)), nhave(V, vector<ld>(3, 0));
     rep(i,V){
         rep(j,3){
@@ -372,16 +373,13 @@ ld sub_loop(int Tlast){
     ld sc = score[Tlast - 1];
     now[3] = 0;
 
-    /*
     if (now[2]>0){
         //辺の上にいるため、引き返すかどうかを選択。進まなくてよい
         if (now[2]+dist[now[0]][0]<(*(edge[now[0]].find(now[1]))).S-now[2]+dist[now[1]][0]){
             swap(now[0], now[1]);
-            now[2] -= (*(edge[now[0]].find(now[1]))).S;
-            now[2] *= -1;
+            now[2] = (*(edge[now[0]].find(now[1]))).S - now[2];
         }
     }
-    */
 
     //１．店舗まで移動する
     int t = Tlast;
@@ -404,7 +402,7 @@ ld sub_loop(int Tlast){
         if (now[2]>0){
             now[2]++;
             ans[t] = now[1];
-            }
+        }
         else{
             //目的地に向けて次移動する頂点を決定する
             for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
@@ -470,6 +468,7 @@ ld sub_loop(int Tlast){
             {
                 //スコア/距離が最大の頂点を目的地とする
                 ld mx = 0;
+                now[3] = 0;
                 repf(i, 1, V)
                 {
                     if (i == now[0])
@@ -480,19 +479,26 @@ ld sub_loop(int Tlast){
                     }
                 }
             }
-
-            //目的地に向けて次移動する頂点を決定する
-            for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
+            if (now[0] == now[3] && now[0]==0)
             {
-                if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
-                    ans[t] = (*itr).F;
+                //上の処理で目的地が見つからなかった。かつ店舗0にいる
+                ans[t] = -2;
             }
-            now[1] = ans[t];
-            now[2] = 1;
+            else
+            {
+                //目的地に向けて次移動する頂点を決定する
+                for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
+                {
+                    if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
+                        ans[t] = (*itr).F;
+                }
+                now[1] = ans[t];
+                now[2] = 1;
+            }
         }
 
         //移動結果の処理
-        if (now[2] && now[2] == (*edge[now[0]].find(now[1])).S)
+        if (now[2] && now[2] == (*(edge[now[0]].find(now[1]))).S)
         {
             //辺の最後にいたら頂点へ位置情報を修正
             now[0] = now[1];
@@ -505,12 +511,51 @@ ld sub_loop(int Tlast){
             sc += calc_value2(t, have[now[0]]);
             rep(j, 3) have[now[0]][j] = 0;
         }
-
         t++;
     }
     //１，２どちらでも注文の更新、荷物積み、配達の完了は通常通り行う。移動先の決定が少し違う
-
     return sc;
+}
+
+bool check(vector<int> answer){
+    int nw = 0;
+    int nx = 0;
+    int d = 0;
+    rep(i,T){
+        if (answer[i]==-2)
+            continue;
+        else if (nw==nx){
+            if (answer[i]==nw){
+                cout << "NG1" << ENDL;
+                return true;
+            }
+            nx = answer[i];
+            d = 1;
+        }
+        else if (nw!=nx){
+            //nxに進む、nwに戻る、別の頂点に進む
+            if (answer[i]==nx){
+                d++;
+            }
+            else if (answer[i]==nw){
+                swap(nx, nw);
+                d = (*(edge[nw].find(nx))).S - d;
+                d++;
+            }
+            else{
+                if (d == (*(edge[nw].find(nx))).S){
+                    nw = nx;
+                    nx = answer[i];
+                    d = 1;
+                }
+                else{
+                    cout << "NG2" << ENDL;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 ll CALC_MAIN(string path)
@@ -550,6 +595,13 @@ ll CALC_MAIN(string path)
         rep(i,T){
             ans_final[i] = ans[i];
         }
+        if (debug)
+        {
+            if (check(ans_final))
+            {
+                cout << "origin" << ENDL;
+            }
+        }
     }
 
     //sub_loopをTlast=9500から？試していく(30sec超えたら終わり)
@@ -569,6 +621,12 @@ ll CALC_MAIN(string path)
             rep(i, T)
             {
                 ans_final[i] = ans[i];
+            }
+            if (debug)
+            {
+                if (check(ans_final)){
+                    cout << T_last << ENDL;
+                }
             }
         }
         T_last--;
@@ -604,7 +662,7 @@ int main()
     }
     int n = 1;
     ld s_score = 0;
-    rep(i, n)
+    repf(i, n, n + 1)
     {
         cout << ENDL;
         cout << "start " << i << ENDL;
