@@ -56,7 +56,7 @@ int input_data[32500],
 //ans[t]:時刻tのコマンド-1
 //place[t]：時刻tのはじめ(コマンド入力前)に
 //辺[0][1]の[0]から[2]進んだ場所にいて、[3]を目的地にしている
-ld dist[405][405], ord_have[10005][405][3], ord_nhave[10005][405][3];
+ld score[10005], dist[405][405], ord_have[10005][405][3], ord_nhave[10005][405][3];
 multimap<int, int> edge[405];
 
 inline int string_to_int(string s)
@@ -201,7 +201,7 @@ void make_dist()
     }
 }
 
-ld main_loop()
+void main_loop()
 {
     int bef = 0;                  //最後に店舗を訪れた時刻
     vector<set<int>> ord_list(V); //受注した注文
@@ -216,7 +216,8 @@ ld main_loop()
             ord_nhave[0][i][j] = 0;
         }
     }
-    ld score = 0;
+
+    score[0] = 0;
 
     //ord_(n)have[t]:時刻t終了時点のスコア記録
     //ord_(n)have[-1]:全部0
@@ -327,7 +328,7 @@ ld main_loop()
                 }
                 ord_all.erase((*itr));
                 ord_cnt[1]--;
-                score += pow(T, 2) - pow(t - (*itr), 2);
+                score[t] += pow(T, 2) - pow(t - (*itr), 2);
                 //score += calc_value(t,now[0]);
             }
             if ((!ord_list[now[0]].empty()) && (*ord_list[now[0]].begin()) <= bef)
@@ -347,8 +348,27 @@ ld main_loop()
                 ord_nhave[t + 1][i][j] = ord_nhave[t][i][j];
             }
         }
+        score[t + 1] = score[t];
     }
     return score;
+}
+
+ld sub_loop(int Tlast){
+    vector<vector<ld>> have(V, vector<ld>(3, 0)), nhave(V, vector<ld>(3, 0));
+    rep(i,V){
+        rep(j,3){
+            have[i][j] = ord_have[Tlast - 1][i][j];
+            nhave[i][j] = ord_nhave[Tlast - 1][i][j];
+        }
+    }
+    vector<int> now(4, 0);
+    rep(i, 4) now[i] = place[Tlast - 1][i];
+    ld sc = score[Tlast - 1];
+
+    //１．店舗まで移動する
+    //２．スコア/距離の大きい順に回っていく
+    //１，２どちらでも注文の更新、荷物積み、配達の完了は通常通り行う
+    //ただし、移動先の決定が少し違う
 }
 
 ll CALC_MAIN(string path)
