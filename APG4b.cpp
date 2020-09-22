@@ -51,7 +51,7 @@ const ll MAX_DIST = 5000;
 int orders_to_move = 9;
 int deadline = 900;
 
-int input_data[32500],
+int input_data[40000],
     V, E, ord_target[10005], ans[10005], place[10005][4];
 //ans[t]:時刻tのコマンド-1
 //place[t]：時刻tのはじめ(コマンド入力前)に
@@ -112,6 +112,28 @@ bool comp_max(ld &a, ld b)
     }
 }
 
+static uint32_t randxor()
+{
+    static uint32_t x = 123456789;
+    static uint32_t y = 362436069;
+    static uint32_t z = 521288629;
+    static uint32_t w = 88675123;
+    uint32_t t;
+    t = x ^ (x << 11);
+    x = y;
+    y = z;
+    z = w;
+    return w = (w ^ (w >> 19)) ^ (t ^ (t >> 8));
+}
+
+random_device rnd;
+mt19937 mt11(rnd());
+
+static double randxor01()
+{
+    return (randxor() + 0.5) * (1.0 / UINT_MAX);
+}
+
 void read_csv(string path)
 {
     ifstream ifs(path);
@@ -135,18 +157,8 @@ void INPUT()
 
     cin >> input_data[0] >> input_data[1];
     rep(i, input_data[1]) cin >> input_data[3 * i + 2] >> input_data[3 * i + 3] >> input_data[3 * i + 4];
-    cin >> input_data[(3 * input_data[1] + 2)];
-    int idx = 3 * input_data[1] + 3;
-    rep(t, T)
-    {
-        cin >> input_data[idx];
-        if (input_data[idx])
-        {
-            cin >> input_data[idx + 1] >> input_data[idx + 2];
-            idx += 2;
-        }
-        idx++;
-    }
+    rep(i, input_data[0]) cin >> input_data[2 + 3 * input_data[1] + i];
+    cin >> input_data[(2 + 3 * input_data[1] + input_data[0])];
 }
 
 void init()
@@ -162,20 +174,7 @@ void init()
         edge[u].insert(mp(v, d));
         edge[v].insert(mp(u, d));
     }
-    int idx = 3 * E + 3;
-    rep(t, T)
-    {
-        if (input_data[idx])
-        {
-            ord_target[t] = input_data[idx + 2] - 1;
-            idx += 3;
-        }
-        else
-        {
-            ord_target[t] = 0;
-            idx++;
-        }
-    }
+    int idx = 3 * E + 3 + V;
 }
 
 void make_dist()
@@ -207,7 +206,233 @@ void make_dist()
     }
 }
 
-ld main_loop()
+ld SimulatedAnnealing(int t_last, double time)
+{
+    auto SAstartClock = system_clock::now();
+
+    //init
+    vector<int> now(4, 0);                        //現在地
+    vector<vector<ld>> have(V, vector<ld>(3, 0)); //各頂点の注文情報
+    ld score_bef = score[t_last - 1];             //t_lastまでのスコア。最後にこれに足して答えとする
+    rep(i, 4) now[i] = place[t_last - 1][i];
+    rep(i, V) rep(j, 3) have[i][j] = ord_have[t_last][i][j];
+
+    int t = t_last;
+    int nw = 0;
+    ld score_mx = 0;           //暫定スコア
+    vector<int> root(1, 0);    //暫定ルート（目的地のみ、道中略）
+    vector<int> visited(V, 0); //どの頂点を訪れたか（スコア計算で使う）
+    visited[0] = 1;
+
+    //初期解の設定
+    while (t < T)
+    {
+        int sz = root.size();
+        nw = root[sz - 1];
+        int nex = -1;
+        ld nex_v = -1;
+
+        rep(i, V)
+        {
+            //nwからiに移動した場合のスコア増分
+            if (i == nw || t + dist[nw][i] > T)
+                continue;
+            ld i_v = (visited[i] ^ 1) * calc_value2(t, have[i]) / (ld)dist[nw][i];
+            if (i_v > nex_v)
+            {
+                nex_v = i_v;
+                nex = i;
+            }
+        }
+        if (nex == -1)
+            break;
+        root.emplace_back(nex);
+        while (nw != nex)
+        {
+            for (auto itr = edge[nw].begin(); itr != edge[nw].end(); itr++)
+            {
+                if (dist[nw][nex] == dist[(*itr).F][nex] + (*itr).S)
+                {
+                    t += (*itr).S;
+                    nw = (*itr).F;
+                    if (visited[nw] == 0)
+                    {
+                        score_mx += calc_value2(t, have[nw]);
+                        visited[nw] = 1;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    //Tを超えた後のルートも一応作っておく
+    while (true)
+    {
+        int sz = root.size();
+        nw = root[sz - 1];
+        int nex = -1;
+        ld nex_v = -1;
+        rep(i, V)
+        {
+            if (i == nw)
+                continue;
+            ld i_v = (visited[i] ^ 1) * calc_value2(t, have[i]) / (ld)(dist[nw][i]);
+            if (i_v > nex_v)
+            {
+                nex_v = i_v;
+                nex = i;
+            }
+        }
+        if (nex == -1)
+            break;
+        root.emplace_back(nex);
+        while (nw != nex)
+        {
+            for (auto itr = edge[nw].begin(); itr != edge[nw].end(); itr++)
+            {
+                if (dist[nw][nex] == dist[(*itr).F][nex] + (*itr).S)
+                {
+                    t += (*itr).S;
+                    nw = (*itr).F;
+                    visited[nw] = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    //時間の限り解の改善
+    int cnt = 0;
+    ld START_TEMP = 20000000;
+    ld END_TEMP = 100000;
+    ld END_TIME = 29.5;
+    ld temp = START_TEMP + (END_TEMP - START_TEMP) * time / END_TIME;
+    vector<int> ans_root = root; //最適解
+    ld mx = score_mx;            // 最適値
+
+    while (true)
+    {
+        if (cnt % 100 == 0)
+        {
+            double time_now = time +
+                              duration_cast<microseconds>(system_clock::now() - SAstartClock).count() * 1e-6;
+            if (time > END_TIME)
+                break;
+            temp = START_TEMP + (END_TEMP - START_TEMP) * time_now / END_TIME;
+        }
+
+        //改善案：ルートの１～szの中で隣り合ったものを入れ替える
+        int sz = root.size();
+        int x = (randxor() % (sz - 2));
+        swap(root[x + 1], root[x + 2]);
+        ld score_new = 0;
+        t = t_last;
+        nw = root[0];
+        rep(i, V) visited[i] = 0;
+        repf(i, 1, sz)
+        {
+            int nex = root[i];
+            if (dist[nw][nex] + t > T)
+                break;
+            while (nw != nex)
+            {
+                if (dist[nw][nex] + t > T)
+                    break;
+                for (auto itr = edge[nw].begin(); itr != edge[nw].end(); itr++)
+                {
+                    if (dist[nw][nex] == dist[(*itr).F][nex] + (*itr).S)
+                    {
+                        if (t + (*itr).S > T)
+                            break;
+                        t += (*itr).S;
+                        nw = (*itr).F;
+                        if (visited[nw] == 0)
+                        {
+                            score_new += calc_value2(t, have[nw]);
+                            visited[nw] = 1;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        ld score_delta = score_new - score_mx;
+
+        if (exp(score_delta / temp) > randxor01())
+        {
+            score_mx += score_delta;
+            if (mx < score_mx)
+            {
+                mx = score_mx;
+                ans_root = root;
+            }
+        }
+        else
+        {
+            swap(root[x + 1], root[x + 2]);
+        }
+        cnt++;
+    }
+
+    //解を出力する
+    t = t_last;
+    nw = ans_root[0];
+    rep(i, V) visited[i] = 0;
+    repf(i, 1, ans_root.size())
+    {
+        int nex = ans_root[i];
+        if (dist[nw][nex] + t > T)
+            break;
+        while (nw != nex)
+        {
+            if (dist[nw][nex] + t > T)
+                break;
+            for (auto itr = edge[nw].begin(); itr != edge[nw].end(); itr++)
+            {
+                if (dist[nw][nex] == dist[(*itr).F][nex] + (*itr).S)
+                {
+                    if (t + (*itr).S > T)
+                        break;
+                    nw = (*itr).F;
+                    rep(xx, (*itr).S)
+                    {
+                        ans[t] = nw;
+                        t++;
+                    }
+                    if (visited[nw] == 0)
+                    {
+                        score_bef += calc_value2(t, have[nw]);
+                        visited[nw] = 1;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    //output
+    if (!(debug))
+    {
+        repf(tt, t_last, T)
+        {
+            int cnt, x;
+            cin >> cnt;
+            rep(i, cnt) cin >> x;
+            cout << ans[tt] + 1 << endl;
+            string verdict;
+            cin >> verdict;
+            if (verdict == "NG")
+                return -1;
+            cin >> cnt;
+            rep(i, cnt) cin >> x;
+        }
+    }
+
+    return score_bef;
+}
+
+int main_loop()
 {
     int bef = 0;                  //最後に店舗を訪れた時刻
     vector<set<int>> ord_list(V); //受注した注文
@@ -224,6 +449,12 @@ ld main_loop()
     }
 
     score[0] = 0;
+    int idx = 3 + 3 * E + V;
+
+    bool check9500 = true;
+    bool go9500 = false;
+    int t_last = T;
+    rep(i, T) ans[i] = -2;
 
     //ord_(n)have[t]:時刻t終了時点のスコア記録
     //ord_(n)have[-1]:全部0
@@ -234,6 +465,27 @@ ld main_loop()
         //時刻tからt+1の処理をおこなう
 
         //注文を受け取る
+        if (debug)
+        {
+            ord_target[t] = input_data[idx];
+            idx++;
+            if (ord_target[t])
+            {
+                ord_target[t] = input_data[idx + 1];
+                ord_target[t]--;
+                idx += 2;
+            }
+        }
+        else
+        {
+            cin >> ord_target[t];
+            if (ord_target[t])
+            {
+                cin >> ord_target[t];
+                cin >> ord_target[t];
+                ord_target[t]--;
+            }
+        }
         if (ord_target[t])
         {
             int tar = ord_target[t];
@@ -265,15 +517,52 @@ ld main_loop()
 
         //行動の決定
         bool search_next = false;
-        ans[t] = -2;
-        if (now[2] > 0)
+
+        if (check9500)
+        {
+            if (now[2] > 0)
+            {
+                int dist_a = t + dist[now[0]][0] + now[2];
+                int dist_b = t + dist[now[1]][0] + (*(edge[now[0]].find(now[1]))).S - now[2];
+                if (dist_b >= 9499 && dist_a >= dist_b)
+                {
+                    check9500 = false;
+                    go9500 = true;
+                    now[3] = 0;
+                }
+                else if (dist_a >= 9499 && dist_b > dist_a)
+                {
+                    check9500 = false;
+                    go9500 = true;
+                    now[3] = 0;
+                    swap(now[0], now[1]);
+                    now[2] = (*(edge[now[0]].find(now[1]))).S - now[2];
+                }
+            }
+            else if (t + dist[now[0]][0] >= 9499)
+            {
+                check9500 = false;
+                go9500 = true;
+                now[3] = 0;
+            }
+        }
+
+        if (go9500 && now[0] == now[1] && now[0] == 0)
+        {
+            t_last = t;
+            break;
+        }
+        else if (now[2] > 0)
         {
             //辺の上にいるとき
             ans[t] = now[1];
             now[2]++;
         }
         else if (now[0] != now[3])
-            search_next = true; //頂点にいるが目的地についていないとき
+        {
+            //頂点にいるが目的地についていないとき
+            search_next = true;
+        }
         else if (ord_cnt[1] >= orders_to_move)
         {
             //頂点にいて、注文を十分に持っているとき、次の目的地を探す
@@ -355,207 +644,28 @@ ld main_loop()
             }
         }
         score[t + 1] = score[t];
-    }
-    return score[T];
-}
 
-ld sub_loop(int Tlast){
-    //init
-    vector<vector<ld>> have(V, vector<ld>(3, 0)), nhave(V, vector<ld>(3, 0));
-    rep(i,V){
-        rep(j,3){
-            have[i][j] = ord_have[Tlast - 1][i][j];
-            nhave[i][j] = ord_nhave[Tlast - 1][i][j];
-        }
-    }
-    vector<int> now(4, 0);
-    rep(i, 4) now[i] = place[Tlast - 1][i];
-    ld sc = score[Tlast - 1];
-    now[3] = 0;
-
-    if (now[2]>0){
-        //辺の上にいるため、引き返すかどうかを選択。進まなくてよい
-        if (now[2]+dist[now[0]][0]<(*(edge[now[0]].find(now[1]))).S-now[2]+dist[now[1]][0]){
-            swap(now[0], now[1]);
-            now[2] = (*(edge[now[0]].find(now[1]))).S - now[2];
+        //output
+        if (!(debug))
+        {
+            int cnt, x;
+            cin >> cnt;
+            rep(i, cnt) cin >> x;
+            cout << ans[t] + 1 << endl;
+            string verdict;
+            cin >> verdict;
+            if (verdict == "NG")
+                return -1;
+            cin >> cnt;
+            rep(i, cnt) cin >> x;
         }
     }
 
-    //１．店舗まで移動する
-    int t = Tlast;
-    while (t<T){
-        if (now[0]==now[1] && now[0]==0)
-            break;
-        //時刻tからt+1の処理をおこなう
-
-        //注文を受け取る
-        if (ord_target[t])
-        {
-            int tar = ord_target[t];
-            //積んでいない荷物の集計
-            nhave[tar][0]++;
-            nhave[tar][1] += t;
-            nhave[tar][2] += pow(t, 2);
-        }
-
-        //行動の決定
-        if (now[2]>0){
-            now[2]++;
-            ans[t] = now[1];
-        }
-        else{
-            //目的地に向けて次移動する頂点を決定する
-            for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
-            {
-                if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
-                    ans[t] = (*itr).F;
-            }
-            now[1] = ans[t];
-            now[2] = 1;
-        }
-
-        //移動結果の処理
-        if (now[2] && now[2] == (*edge[now[0]].find(now[1])).S)
-        {
-            //辺の最後にいたら頂点へ位置情報を修正
-            now[0] = now[1];
-            now[2] = 0;
-        }
-
-        //配達完了処理とスコアの集計
-        if (now[2] == 0 && now[0] != 0)
-        {
-            sc += calc_value2(t,have[now[0]]);
-            rep(j, 3) have[now[0]][j] = 0;
-        }
-
-        t++;
-    }
-    //２．スコア/距離の大きい順に回っていく
-    while (t<T){
-        //時刻tからt+1の処理をおこなう
-
-        //注文を受け取る
-        if (ord_target[t])
-        {
-            int tar = ord_target[t];
-            //積んでいない荷物の集計
-            nhave[tar][0]++;
-            nhave[tar][1] += t;
-            nhave[tar][2] += pow(t, 2);
-        }
-
-        //商品を積む
-        if (now[0] == now[1] && now[0] == 0)
-        {
-            rep(i, V)
-            {
-                rep(j, 3)
-                {
-                    have[i][j] += nhave[i][j];
-                    nhave[i][j] = 0;
-                }
-            }
-        }
-        
-        //行動の決定
-        if(now[2]>0){
-            now[2]++;
-            ans[t] = now[1];
-        }
-        else{
-            if (now[0]==now[3])
-            {
-                //スコア/距離が最大の頂点を目的地とする
-                ld mx = 0;
-                now[3] = 0;
-                repf(i, 1, V)
-                {
-                    if (i == now[0])
-                        continue;
-                    if (comp_max(mx, calc_value2(t, have[i]) / (ld)dist[now[0]][i]))
-                    {
-                        now[3] = i;
-                    }
-                }
-            }
-            if (now[0] == now[3] && now[0]==0)
-            {
-                //上の処理で目的地が見つからなかった。かつ店舗0にいる
-                ans[t] = -2;
-            }
-            else
-            {
-                //目的地に向けて次移動する頂点を決定する
-                for (auto itr = edge[now[0]].begin(); itr != edge[now[0]].end(); itr++)
-                {
-                    if ((*itr).S + dist[(*itr).F][now[3]] == dist[now[0]][now[3]])
-                        ans[t] = (*itr).F;
-                }
-                now[1] = ans[t];
-                now[2] = 1;
-            }
-        }
-
-        //移動結果の処理
-        if (now[2] && now[2] == (*(edge[now[0]].find(now[1]))).S)
-        {
-            //辺の最後にいたら頂点へ位置情報を修正
-            now[0] = now[1];
-            now[2] = 0;
-        }
-
-        //配達完了処理とスコアの集計
-        if (now[2] == 0 && now[0] != 0)
-        {
-            sc += calc_value2(t, have[now[0]]);
-            rep(j, 3) have[now[0]][j] = 0;
-        }
-        t++;
-    }
-    //１，２どちらでも注文の更新、荷物積み、配達の完了は通常通り行う。移動先の決定が少し違う
-    return sc;
-}
-
-bool check(vector<int> answer){
-    int nw = 0;
-    int nx = 0;
-    int d = 0;
-    rep(i,T){
-        if (answer[i]==-2)
-            continue;
-        else if (nw==nx){
-            if (answer[i]==nw){
-                cout << "NG1" << ENDL;
-                return true;
-            }
-            nx = answer[i];
-            d = 1;
-        }
-        else if (nw!=nx){
-            //nxに進む、nwに戻る、別の頂点に進む
-            if (answer[i]==nx){
-                d++;
-            }
-            else if (answer[i]==nw){
-                swap(nx, nw);
-                d = (*(edge[nw].find(nx))).S - d;
-                d++;
-            }
-            else{
-                if (d == (*(edge[nw].find(nx))).S){
-                    nw = nx;
-                    nx = answer[i];
-                    d = 1;
-                }
-                else{
-                    cout << "NG2" << ENDL;
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
+    //いま、時刻t_lastで、9499までの全ての注文の処理と、商品を積む作業が終了している。
+    //場所はplace[t_last-1]、スコアはscore[t_last]=score[t_last-1]
+    //have,nhaveは[t_last]が、注文集荷の処理済み
+    //ここからの配送計画について、SAを用いて最適化する。
+    return t_last;
 }
 
 ll CALC_MAIN(string path)
@@ -583,54 +693,14 @@ ll CALC_MAIN(string path)
 
     //最終的な解と値
     vector<int> ans_final(T, -2);
-    ld mx_score = 0;
 
     //main_treatment
     //注文がk個以上のときすべて回る（0を通ったら追加する）
     //注文がk個未満のとき0へ向かう。（配達完了処理もちゃんとする）
     //注文からdeadline経っている商品は優先的に配達する
-    ld now_score = main_loop();
-    if (now_score>mx_score){
-        mx_score = now_score;
-        rep(i,T){
-            ans_final[i] = ans[i];
-        }
-        if (debug)
-        {
-            if (check(ans_final))
-            {
-                cout << "origin" << ENDL;
-            }
-        }
-    }
-
-    //sub_loopをTlast=9500から？試していく(30sec超えたら終わり)
-    int T_last = 9500;
-    while (T_last>0)
-    {
-        if (T_last)
-        {
-            double time = duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6;
-            if (time > 29.5)
-                break;
-        }
-        now_score = sub_loop(T_last);
-        if (now_score > mx_score)
-        {
-            mx_score = now_score;
-            rep(i, T)
-            {
-                ans_final[i] = ans[i];
-            }
-            if (debug)
-            {
-                if (check(ans_final)){
-                    cout << T_last << ENDL;
-                }
-            }
-        }
-        T_last--;
-    }
+    int t_last = main_loop();
+    double time = duration_cast<microseconds>(system_clock::now() - startClock).count() * 1e-6;
+    ld score_answer = SimulatedAnnealing(t_last, time);
 
     if (debug && time_display)
     {
@@ -639,13 +709,7 @@ ll CALC_MAIN(string path)
              << ENDL;
     }
 
-    //output
-    if (!(debug))
-    {
-        rep(i, T) cout << ans_final[i] + 1 << ENDL;
-    }
-
-    return mx_score;
+    return score_answer;
 }
 
 int main()
@@ -654,7 +718,7 @@ int main()
     cin.tie(nullptr);
     const string path = "./test_A/input_";
     string path_in = path + int_to_string(0) + ".csv";
-    string problem = "A";
+    string problem = "B";
     if (!(debug))
     {
         CALC_MAIN(path_in);
