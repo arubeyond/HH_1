@@ -528,6 +528,57 @@ ld sub_loop(int Tlast)
     return sc;
 }
 
+bool check(vector<int> answer)
+{
+    int nw = 0;
+    int nx = 0;
+    int d = 0;
+    rep(i, T)
+    {
+        if (answer[i] == -2)
+            continue;
+        else if (nw == nx)
+        {
+            if (answer[i] == nw)
+            {
+                cout << "NG1" << ENDL;
+                return true;
+            }
+            nx = answer[i];
+            d = 1;
+        }
+        else if (nw != nx)
+        {
+            //nxに進む、nwに戻る、別の頂点に進む
+            if (answer[i] == nx)
+            {
+                d++;
+            }
+            else if (answer[i] == nw)
+            {
+                swap(nx, nw);
+                d = (*(edge[nw].find(nx))).S - d;
+                d++;
+            }
+            else
+            {
+                if (d == (*(edge[nw].find(nx))).S)
+                {
+                    nw = nx;
+                    nx = answer[i];
+                    d = 1;
+                }
+                else
+                {
+                    cout << "NG2" << ENDL;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 ll CALC_MAIN(string path)
 {
 
@@ -567,6 +618,13 @@ ll CALC_MAIN(string path)
         {
             ans_final[i] = ans[i];
         }
+        if (debug)
+        {
+            if (check(ans_final))
+            {
+                cout << "origin" << ENDL;
+            }
+        }
     }
 
     //sub_loopをTlast=9500から？試していく(30sec超えたら終わり)
@@ -586,6 +644,13 @@ ll CALC_MAIN(string path)
             rep(i, T)
             {
                 ans_final[i] = ans[i];
+            }
+            if (debug)
+            {
+                if (check(ans_final))
+                {
+                    cout << T_last << ENDL;
+                }
             }
         }
         T_last--;
