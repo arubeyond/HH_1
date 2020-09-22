@@ -230,7 +230,7 @@ ld SimulatedAnnealing(int t_last, double time)
         int sz = root.size();
         nw = root[sz - 1];
         int nex = -1;
-        ld nex_v = -1;
+        ld nex_v = 0;
 
         rep(i, V)
         {
@@ -272,7 +272,7 @@ ld SimulatedAnnealing(int t_last, double time)
         int sz = root.size();
         nw = root[sz - 1];
         int nex = -1;
-        ld nex_v = -1;
+        ld nex_v = 0;
         rep(i, V)
         {
             if (i == nw)
@@ -317,7 +317,7 @@ ld SimulatedAnnealing(int t_last, double time)
         {
             double time_now = time +
                               duration_cast<microseconds>(system_clock::now() - SAstartClock).count() * 1e-6;
-            if (time > END_TIME)
+            if (time_now > END_TIME)
                 break;
             temp = START_TEMP + (END_TEMP - START_TEMP) * time_now / END_TIME;
         }
@@ -726,7 +726,7 @@ int main()
     }
     int n = 1;
     ld s_score = 0;
-    repf(i, n, n + 1)
+    rep(i,n)
     {
         cout << ENDL;
         cout << "start " << i << ENDL;
